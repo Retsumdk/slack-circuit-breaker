@@ -1,0 +1,17 @@
+{
+  "name": "slack-circuit-breaker",
+  "description": "slack circuit breaker implementation for resilience and fallback handling in Slack integrations",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.0",
+    "typescript": "^5.3.0"
+  }
+}
