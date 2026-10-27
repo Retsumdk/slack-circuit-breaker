@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run typecheck:tests
+      - run: bun test
+      - run: bun run build
+      - run: node dist/cli.js --help > /dev/null
+      - run: |
+          node dist/cli.js demo > /tmp/demo-a.txt
+          node dist/cli.js demo > /tmp/demo-b.txt
+          diff /tmp/demo-a.txt /tmp/demo-b.txt
+
+  node-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Verify the documented npm GitHub-install path from a neutral directory
+      # (from the repo root, Node would resolve the bare specifier to this
+      # package's own dist instead of node_modules).
+      - run: |
+          mkdir -p /tmp/scb-install-probe && cd /tmp/scb-install-probe
+          npm init -y >/dev/null
+          npm install github:Retsumdk/slack-circuit-breaker >/dev/null
+          node -e "import('slack-circuit-breaker').then((m) => { if (typeof m.SlackBreaker !== 'function') throw new Error('bad export'); console.log('node-install OK'); })"

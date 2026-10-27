@@ -1,17 +1,58 @@
 {
   "name": "slack-circuit-breaker",
-  "description": "slack circuit breaker implementation for resilience and fallback handling in Slack integrations",
   "version": "1.0.0",
+  "description": "Circuit breaker for the Slack Web API: closed/open/half-open state machine, retry with backoff and Retry-After, persistent fallback outbox with drain-on-recovery. Zero dependencies.",
   "type": "module",
-  "scripts": {
-    "test": "bun test",
-    "build": "tsc"
+  "license": "MIT",
+  "author": "Retsumdk",
+  "keywords": [
+    "slack",
+    "circuit-breaker",
+    "resilience",
+    "rate-limit",
+    "retry",
+    "outbox",
+    "backoff",
+    "typescript"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
-  "dependencies": {
-    "commander": "^11.1.0"
+  "bin": {
+    "scb": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "prepare": "tsc",
+    "build": "tsc",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
+    "demo": "node dist/cli.js demo"
   },
   "devDependencies": {
-    "bun-types": "^1.0.0",
-    "typescript": "^5.3.0"
-  }
+    "@types/node": "^22.0.0",
+    "bun-types": "^1.4.3",
+    "typescript": "^5.5.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Retsumdk/slack-circuit-breaker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Retsumdk/slack-circuit-breaker/issues"
+  },
+  "homepage": "https://github.com/Retsumdk/slack-circuit-breaker#readme"
 }
