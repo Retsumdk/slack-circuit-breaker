@@ -59,6 +59,27 @@ bun install
 bun run build
 ```
 
+## Use as a GitHub Action
+
+The repo ships a bundled action (`action.yml` + `action/scb.js`, built from the same CLI), so a workflow can post to Slack without installing anything:
+
+```yaml
+- uses: Retsumdk/slack-circuit-breaker@v1
+  with:
+    slack-token: ${{ secrets.SLACK_BOT_TOKEN }}
+    channel: C0123456789
+    text: "deploy ${{ github.sha }} finished"
+```
+
+What that buys you over `curl`-ing the Slack API:
+
+- **A Slack outage does not fail your build.** If Slack is down or rate-limiting, the message is parked in the outbox under `$RUNNER_TEMP/scb/` and the step warns instead of failing. Set `fail-on-queue: true` if a missing notification should be an error.
+- **One step, no retry logic in your YAML.** Retries, `Retry-After`, 429 handling and the breaker live in the action.
+- **`command: status`** prints the breaker state and outbox size; **`command: drain`** replays what is parked. Both work in later runs when you cache `$RUNNER_TEMP/scb/` or point the files at a stable path.
+
+Inputs: `slack-token`, `channel`, `text`, `method` (default `chat.postMessage`), `command` (`send` | `drain` | `status` | `demo`), `fail-on-queue`.
+Outputs: `sent`, `queued`, `code`.
+
 ## Quick start (library)
 
 ```ts

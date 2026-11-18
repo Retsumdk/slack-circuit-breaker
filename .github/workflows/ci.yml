@@ -24,6 +24,14 @@ jobs:
       - run: bun run typecheck:tests
       - run: bun test
       - run: bun run build
+
+      # action/scb.js is committed so `uses: Retsumdk/slack-circuit-breaker@v1`
+      # works without an install step. Rebuild and compare so it cannot drift
+      # from src/.
+      - name: Action bundle is up to date
+        run: |
+          bun build src/cli.ts --target node --format esm --outfile /tmp/scb-bundle.js
+          diff -q /tmp/scb-bundle.js action/scb.js
       - run: node dist/cli.js --help > /dev/null
       - run: |
           node dist/cli.js demo > /tmp/demo-a.txt

@@ -1,0 +1,105 @@
+name: Slack Circuit Breaker
+description: Post to Slack from a workflow through a circuit breaker — retry with backoff, Retry-After, and a persistent outbox, so a Slack outage never fails or floods your build.
+author: Retsumdk
+
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  command:
+    description: "send, drain, status or demo"
+    required: false
+    default: send
+  slack-token:
+    description: "Slack bot token (pass secrets.SLACK_BOT_TOKEN). Not needed for status or demo."
+    required: false
+    default: ""
+  method:
+    description: "Slack Web API method"
+    required: false
+    default: chat.postMessage
+  channel:
+    description: "Channel id, e.g. C0123456789"
+    required: false
+    default: ""
+  text:
+    description: "Message text"
+    required: false
+    default: ""
+  fail-on-queue:
+    description: "Fail the job when the message was parked in the outbox instead of delivered"
+    required: false
+    default: "false"
+
+outputs:
+  sent:
+    description: "true when Slack accepted the message"
+    value: ${{ steps.scb.outputs.sent }}
+  queued:
+    description: "true when the circuit was open and the message was parked in the outbox"
+    value: ${{ steps.scb.outputs.queued }}
+  code:
+    description: "Slack error code when the call failed"
+    value: ${{ steps.scb.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    - id: scb
+      shell: bash
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack-token }}
+        SCB_COMMAND: ${{ inputs.command }}
+        SCB_METHOD: ${{ inputs.method }}
+        SCB_CHANNEL: ${{ inputs.channel }}
+        SCB_TEXT: ${{ inputs.text }}
+        SCB_FAIL_ON_QUEUE: ${{ inputs.fail-on-queue }}
+        SCB_STATE: ${{ runner.temp }}/scb/state.json
+        SCB_OUTBOX: ${{ runner.temp }}/scb/outbox.json
+        SCB_PATH: ${{ github.action_path }}
+      run: |
+        set -uo pipefail
+
+        case "$SCB_COMMAND" in
+          send)  args=(send "$SCB_METHOD" --state "$SCB_STATE" --outbox "$SCB_OUTBOX" --json) ;;
+          drain) args=(drain --state "$SCB_STATE" --outbox "$SCB_OUTBOX" --max 100 --json) ;;
+          status) args=(status --state "$SCB_STATE" --outbox "$SCB_OUTBOX" --json) ;;
+          *) echo "unknown command: $SCB_COMMAND" >&2; exit 1 ;;
+        esac
+        if [ -n "$SCB_CHANNEL" ]; then args+=(--channel "$SCB_CHANNEL"); fi
+        if [ -n "$SCB_TEXT" ]; then args+=(--text "$SCB_TEXT"); fi
+
+        output=$(node "${SCB_PATH}/action/scb.js" "${args[@]}" 2>&1)
+        rc=$?
+        echo "$output"
+
+        sent=false
+        queued=false
+        code=""
+        parsed=$(printf '%s' "$output" | node -e 'let raw="";process.stdin.on("data",c=>raw+=c);process.stdin.on("end",()=>{try{const d=JSON.parse(raw);console.log("sent="+(d.sent===true));console.log("queued="+(d.queued===true));console.log("code="+(d.code??""));}catch{}})')
+        if [ -n "$parsed" ]; then
+          sent=$(printf '%s' "$parsed" | sed -n 's/^sent=//p')
+          queued=$(printf '%s' "$parsed" | sed -n 's/^queued=//p')
+          code=$(printf '%s' "$parsed" | sed -n 's/^code=//p')
+        fi
+        {
+          echo "sent=$sent"
+          echo "queued=$queued"
+          echo "code=$code"
+        } >> "$GITHUB_OUTPUT"
+
+        if [ "$rc" -eq 2 ]; then
+          if [ "$SCB_COMMAND" = "drain" ]; then
+            echo "::warning::Slack circuit is still open — nothing was drained; $SCB_OUTBOX is unchanged."
+          else
+            if [ "$SCB_COMMAND" = "drain" ]; then
+            echo "::warning::Slack circuit is still open — nothing was drained; $SCB_OUTBOX is unchanged."
+          else
+            echo "::warning::Slack circuit is open — the message was parked in the outbox ($SCB_OUTBOX) and will be replayed by a 'command: drain' run."
+          fi
+          fi
+          if [ "$SCB_FAIL_ON_QUEUE" = "true" ]; then exit 1; fi
+          exit 0
+        fi
+        exit "$rc"
