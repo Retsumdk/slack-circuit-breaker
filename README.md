@@ -1,5 +1,8 @@
 # slack-circuit-breaker
 
+[![CI](https://github.com/Retsumdk/slack-circuit-breaker/actions/workflows/ci.yml/badge.svg)](https://github.com/Retsumdk/slack-circuit-breaker/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Retsumdk/slack-circuit-breaker)](https://github.com/Retsumdk/slack-circuit-breaker/releases)
+
 A circuit breaker for the [Slack Web API](https://api.slack.com/web) — retry with backoff, a persistent fallback outbox, and drain-on-recovery. Zero runtime dependencies.
 
 ## The problem
@@ -77,8 +80,16 @@ What that buys you over `curl`-ing the Slack API:
 - **One step, no retry logic in your YAML.** Retries, `Retry-After`, 429 handling and the breaker live in the action.
 - **`command: status`** prints the breaker state and outbox size; **`command: drain`** replays what is parked. Both work in later runs when you cache `$RUNNER_TEMP/scb/` or point the files at a stable path.
 
-Inputs: `slack-token`, `channel`, `text`, `method` (default `chat.postMessage`), `command` (`send` | `drain` | `status` | `demo`), `fail-on-queue`.
-Outputs: `sent`, `queued`, `code`.
+| Input | Default | What it does |
+| --- | --- | --- |
+| `command` | `send` | `send`, `drain`, `status` or `demo` |
+| `slack-token` | — | bot token; not needed for `status` / `demo` |
+| `method` | `chat.postMessage` | Slack Web API method |
+| `channel` | — | channel id, e.g. `C0123456789` |
+| `text` | — | message text |
+| `fail-on-queue` | `false` | fail the job when the message was parked instead of delivered |
+
+A **permanent** rejection (`invalid_auth`, `channel_not_found`) is never queued: it fails the step, because a bad token should be loud rather than parked.
 
 ## Quick start (library)
 
